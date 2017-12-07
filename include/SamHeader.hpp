@@ -91,6 +91,7 @@ namespace BamTools {
 					}
 					sz = 0;
 				}
+				if(*ptr == 0) break;
 			}
 
 			_header->n_targets = target_size.size();
@@ -106,7 +107,6 @@ namespace BamTools {
 
 			_header->text = strdup(text.c_str());
 
-			if(*ptr == 0) break;
 		}
 		void destory() 
 		{
