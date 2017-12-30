@@ -169,9 +169,14 @@ namespace BamTools {
 			return !(_bam->bam->core.flag & BAM_FUNMAP);
 		}
 
-		inline bool IsFirstMate()
+		inline bool IsFirstMate() const
 		{
 			return _bam->bam->core.flag & BAM_FREAD1;
+		}
+
+		inline bool IsSecondMate() const
+		{
+			return _bam->bam->core.flag & BAM_FREAD2;
 		}
 
 		inline bool IsReverseStrand() const

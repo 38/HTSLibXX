@@ -67,19 +67,32 @@ namespace BamTools {
 
 			return true;
 		}
+
 		bool Open(const std::string& filename) 
 		{
 			std::vector<std::string> vec;
 			vec.push_back(filename);
 			return Open(vec);
 		}
+
+		bool IsOpen() const 
+		{
+			return true;
+		}
+
 		const RefVector GetReferenceData() const
 		{
 			return _hdrs.at(0).GetReferenceData();
 		}
+
 		SamHeader GetHeader(int idx = 0) const
 		{
 			return _hdrs.at(idx);
+		}
+
+		std::string GetHeaderText(int idx = -1) const 
+		{
+			return _hdrs.at(idx).GetHeaderText();
 		}
 		std::string GetErrorString() const
 		{
@@ -101,6 +114,11 @@ namespace BamTools {
 			_read_sam_file(fp);
 
 			return true;
+		}
+
+		bool GetNextAlignmentCore(BamAlignment& alignment)
+		{
+			return GetNextAlignment(alignment);
 		}
 
 		void Close(void)

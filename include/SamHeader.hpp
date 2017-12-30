@@ -30,6 +30,7 @@ namespace BamTools {
 		std::string GroupOrder;
 
 		SamHeader() : _header(NULL), _filename(""), SortOrder(_defulat_sort_order), Version(_defualt_version), GroupOrder(_default_group_order) {}
+
 		SamHeader(const std::string& filename, bam_hdr_t* hdr) 
 			: _header(hdr), _filename(filename), SortOrder(_defulat_sort_order), Version(_defualt_version),  GroupOrder(_default_group_order) 
 		{
@@ -58,6 +59,12 @@ namespace BamTools {
 				}
 			}
 		}
+
+		std::string GetHeaderText() const 
+		{
+			return _header == NULL || _header->text == NULL ? "" : _header->text;
+		}
+
 		void ParseHeaderText(const std::string& text)
 		{
 			_header = bam_hdr_init();
