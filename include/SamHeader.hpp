@@ -5,13 +5,8 @@
 #include <htslib/sam.h>
 #include <vector>
 #include <string.h>
+#include <api/BamAux.h>
 namespace BamTools {
-	struct RefData {
-		std::string RefName;
-		int32_t RefLength;
-		RefData(const char* refName, int32_t refLength):
-			RefName(refName), RefLength(refLength) {}
-	};
 
 	typedef std::vector<RefData> RefVector;
 	

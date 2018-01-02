@@ -185,31 +185,40 @@ namespace BamTools {
 			BlockLength = size;
 		}
 
+		inline bool GetAlignmentFlag(uint32_t mask) const
+		{
+			return _bam->bam->core.flag & mask;
+		}
+
+		inline void SetAlignmentFlag(uint32_t mask, bool val)
+		{
+			if(val && !(_bam->bam->core.flag & mask))
+				_bam->bam->core.flag |= mask;
+			else if(val && (_bam->bam->core.flag & mask))
+				_bam->bam->core.flag &= ~mask;
+		}
+
+#define FLAG_ACCESSOR(name, mask) \
+		inline bool Is##name() const { return GetAlignmentFlag(mask); }; \
+		inline void SetIs##name(bool val) { SetAlignmentFlag(mask, val); };
+
 		inline bool IsMapped() const
 		{
 			return !(_bam->bam->core.flag & BAM_FUNMAP);
 		}
 
-		inline bool IsFirstMate() const
+		bool IsMateMapped() const
 		{
-			return _bam->bam->core.flag & BAM_FREAD1;
+			return !(_bam->bam->core.flag & BAM_FMUNMAP);
 		}
 
-		inline bool IsSecondMate() const
-		{
-			return _bam->bam->core.flag & BAM_FREAD2;
-		}
 
-		inline bool IsReverseStrand() const
-		{
-			return _bam->bam->core.flag & BAM_FREVERSE;
-		}
-
-		inline void SetIsReverseStrand(bool val) 
-		{
-			_bam->bam->core.flag ^= ~BAM_FREVERSE;
-			_bam->bam->core.flag |= (val);
-		}
+		FLAG_ACCESSOR(FirstMate, BAM_FREAD1);
+		FLAG_ACCESSOR(SecondMate, BAM_FREAD2);
+		FLAG_ACCESSOR(ReverseStrand, BAM_FREVERSE);
+		FLAG_ACCESSOR(MateReverseStrand, BAM_FMREVERSE);
+		FLAG_ACCESSOR(ProperPair, BAM_FPROPER_PAIR);
+		FLAG_ACCESSOR(Paired, BAM_FPAIRED);
 
 		int GetEndPosition(bool usePadded = false, bool closedInterval = false) const
 		{
@@ -238,17 +247,7 @@ namespace BamTools {
 				return false;
 			return true;
 		}
-
-		bool IsPaired() const
-		{
-			return !(_bam->bam->core.flag & BAM_FPAIRED);
-		}
-
-		bool IsMateMapped() const
-		{
-			return !(_bam->bam->core.flag & BAM_FMUNMAP);
-		}
-
+		
 		template <typename T>
 		bool AddTag(const std::string& tag, const std::string& type, T& data)
 		{
