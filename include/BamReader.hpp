@@ -18,9 +18,17 @@ namespace BamTools {
 			samFile* fp;
 			uint32_t idx;
 		};
+		struct _MetaData {
+			_SamFile file;
+			uint32_t size;
+			_MetaData(_SamFile& _file, uint32_t size) : file(_file.fp, _file.idx)
+			{
+				this->size = size;
+			}
+		};
 
 		struct _Comp {
-			bool operator()(const std::pair<_SamFile, bam1_t*>& left, const std::pair<_SamFile, bam1_t*>& right) 
+			bool operator()(const std::pair<_MetaData, bam1_t*>& left, const std::pair<_MetaData, bam1_t*>& right) 
 			{
 				if(left.second->core.tid == right.second->core.tid)
 				{
@@ -32,14 +40,15 @@ namespace BamTools {
 
 		std::vector<_SamFile> _files;
 		std::vector<SamHeader> _hdrs;
-		std::priority_queue<std::pair<_SamFile, bam1_t*>, std::vector<std::pair<_SamFile, bam1_t*> >, _Comp> _queue;
+		std::priority_queue<std::pair<_MetaData, bam1_t*>, std::vector<std::pair<_MetaData, bam1_t*> >, _Comp> _queue;
 
 		bool _read_sam_file(_SamFile file)
 		{
 			bam1_t *rec_ptr = bam_init1();
-			if (sam_read1(file.fp, _hdrs[file.idx].GetHeaderStruct(), rec_ptr) >= 0)
+			int read_rc;
+			if ((read_rc = sam_read1(file.fp, _hdrs[file.idx].GetHeaderStruct(), rec_ptr)) >= 0)
 			{
-				_queue.push(std::make_pair(file, rec_ptr));
+				_queue.push(std::make_pair(_MetaData(file, (uint32_t)(read_rc - 4)) , rec_ptr));
 				return true;
 			}
 			bam_destroy1(rec_ptr);
@@ -104,9 +113,9 @@ namespace BamTools {
 
 			auto& top = _queue.top();
 
-			_SamFile fp = top.first;
+			_SamFile fp = top.first.file;
 			
-			alignment(_hdrs[fp.idx].Filename(), top.second);
+			alignment(_hdrs[fp.idx].Filename(), top.second, top.first.size);
 
 			_queue.pop();
 

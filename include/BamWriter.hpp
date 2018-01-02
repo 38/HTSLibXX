@@ -9,6 +9,10 @@ namespace BamTools {
 		samFile* _fp;
 		SamHeader _hdr;
 	public:
+		enum CompressionMode {
+			Compressed,
+			Uncompressed
+		};
 		bool Open(const std::string& filename, const std::string& samHeaderText, const RefVector& referenceSequences, bool binary = true)
 		{
 			_fp = sam_open(filename.empty() ? "-" : filename.c_str(), binary ? "wb" : "w");
@@ -27,6 +31,10 @@ namespace BamTools {
 		{
 			const bam1_t* bam = al.HtsObj();
 			sam_write1(_fp, _hdr.GetHeaderStruct(), bam);
+		}
+		void SetCompressionMode(CompressionMode mode)
+		{
+			/* TODO(haohou) implemnt this */
 		}
 	};
 }

@@ -77,37 +77,82 @@ namespace BamTools {
 		std::string Filename;
 
 		struct _CigarData {
-			operator std::vector<CigarOp>() const
+			operator std::vector<CigarOp>&() const
 			{
+				_CigarData* self = (_CigarData*)this;
+				
+				if(_init) return self->_data;
+
+				self->_init = true;
+
 				uint32_t *cigar = bam_get_cigar(_parent._bam->bam);  
 				uint32_t num_cigar_elements = _parent._bam->bam->core.n_cigar;
-				std::vector<CigarOp> cd;
 
 				for ( uint32_t i = 0; i < num_cigar_elements; ++i )
 				{
 					char type = cigar_ops_as_chars[static_cast<int>(bam_cigar_op(cigar[i]))];
 					uint32_t len = bam_cigar_oplen(cigar[i]);
-					cd.push_back(CigarOp(type, len));
+					self->_data.push_back(CigarOp(type, len));
 				}
-				return cd;
+				return self->_data;
 			}
-			_CigarData(const BamAlignment& parent) : _parent(parent) {}
+			_CigarData(const BamAlignment& parent) : _parent(parent),_init(false) {}
+
+			std::vector<CigarOp>::iterator begin() const 
+			{
+				return ((std::vector<CigarOp>)*this).begin();
+			}
+			
+			std::vector<CigarOp>::iterator end() const 
+			{
+				return ((std::vector<CigarOp>)*this).end();
+			}
+
+			void push_back(CigarOp& op)
+			{
+				((std::vector<CigarOp>)*this).push_back(op);
+			}
+
+			void clear(){ _data.clear(); }
 		private:
 			const BamAlignment& _parent;
+			std::vector<CigarOp> _data;
+			bool _init;
 		} CigarData;
 		
-		std::string QueryBases, AlignedBases, Qualities;
+		/* TODO: fix all this dummy strings What is TagData? Not from file? */
+		std::string QueryBases, AlignedBases, Qualities, ErrorString, TagData;
+		uint32_t BlockLength;
 
 #include <BamAlignment.mapping.hpp>
+
+		struct _SupportData {
+			_QueryNameLength_t& QueryNameLength;
+			_QuerySequenceLength_t& QuerySequenceLength;
+			_NumCigarOperations_t& NumCigarOperations;
+			uint32_t& BlockLength;
+			std::string AllCharData; /* TODO(haohou): dealing with this dummy string, probably based on _ptr->data */
+			bool HasCoreOnly;  /* TODO(haohou): populate the string data */
+			/* TODO(haohou): Tag2Cigar?  Real Cigar ? */
+			_SupportData(BamAlignment& parent): 
+				QueryNameLength(parent.QueryNameLength),
+				QuerySequenceLength(parent.QuerySequenceLength),
+				NumCigarOperations(parent.NumCigarOperations),
+				BlockLength(parent.BlockLength),
+				HasCoreOnly(false)
+			{}
+		} SupportData;
 		
 
-		BamAlignment() : _bam(NULL),  CigarData(*this){}
+		BamAlignment() : _bam(NULL),  CigarData(*this),  BlockLength(0), SupportData(*this){}
 
-		BamAlignment(const std::string& filename, bam1_t* bam) : 
+		BamAlignment(const std::string& filename, bam1_t* bam, uint32_t size) : 
 			_bam(new _Bam(bam)), 
 			Name(bam_get_qname(bam)),
 			Filename(filename),
-			CigarData(*this)
+			CigarData(*this),
+			BlockLength(size),
+			SupportData(*this)
 		{
 			setup(bam);
 		}
@@ -115,7 +160,8 @@ namespace BamTools {
 		BamAlignment(const BamAlignment& ba) :
 			_bam(ba._bam), 
 			Filename(ba.Filename),
-			CigarData(*this)
+			CigarData(*this),
+			SupportData(*this)
 		{
 			setup(ba);
 		}
@@ -126,15 +172,17 @@ namespace BamTools {
 			Name = ba.Name;
 			Filename = ba.Filename;
 			setup(ba);
+			BlockLength = ba.BlockLength;
 			return *this;
 		}
 
-		void operator ()(const std::string filename, bam1_t* bam)
+		void operator ()(const std::string filename, bam1_t* bam, uint32_t size)
 		{
 			_bam = std::shared_ptr<_Bam>(new _Bam(bam));
 			Filename = filename;
 			Name = std::string(bam_get_qname(bam));
 			setup(bam);
+			BlockLength = size;
 		}
 
 		inline bool IsMapped() const
@@ -155,6 +203,12 @@ namespace BamTools {
 		inline bool IsReverseStrand() const
 		{
 			return _bam->bam->core.flag & BAM_FREVERSE;
+		}
+
+		inline void SetIsReverseStrand(bool val) 
+		{
+			_bam->bam->core.flag ^= ~BAM_FREVERSE;
+			_bam->bam->core.flag |= (val);
 		}
 
 		int GetEndPosition(bool usePadded = false, bool closedInterval = false) const
@@ -183,6 +237,11 @@ namespace BamTools {
 			if ( aux_ptr == nullptr )
 				return false;
 			return true;
+		}
+
+		bool IsPaired() const
+		{
+			return !(_bam->bam->core.flag & BAM_FPAIRED);
 		}
 
 		bool IsMateMapped() const
