@@ -75,50 +75,22 @@ namespace BamTools {
 		}
 		std::string Name;
 		std::string Filename;
+		std::vector<CigarOp> CigarData;
 
-		struct _CigarData {
-			operator std::vector<CigarOp>&() const
+		void InitCigarData()
+		{
+			CigarData.clear();
+
+			uint32_t *cigar = bam_get_cigar(_bam->bam);  
+			uint32_t num_cigar_elements = _bam->bam->core.n_cigar;
+
+			for ( uint32_t i = 0; i < num_cigar_elements; ++i )
 			{
-				_CigarData* self = (_CigarData*)this;
-				
-				if(_init) return self->_data;
-
-				self->_init = true;
-
-				uint32_t *cigar = bam_get_cigar(_parent._bam->bam);  
-				uint32_t num_cigar_elements = _parent._bam->bam->core.n_cigar;
-
-				for ( uint32_t i = 0; i < num_cigar_elements; ++i )
-				{
-					char type = cigar_ops_as_chars[static_cast<int>(bam_cigar_op(cigar[i]))];
-					uint32_t len = bam_cigar_oplen(cigar[i]);
-					self->_data.push_back(CigarOp(type, len));
-				}
-				return self->_data;
+				char type = cigar_ops_as_chars[static_cast<int>(bam_cigar_op(cigar[i]))];
+				uint32_t len = bam_cigar_oplen(cigar[i]);
+				CigarData.push_back(CigarOp(type, len));
 			}
-			_CigarData(const BamAlignment& parent) : _parent(parent),_init(false) {}
-
-			std::vector<CigarOp>::iterator begin() const 
-			{
-				return ((std::vector<CigarOp>)*this).begin();
-			}
-			
-			std::vector<CigarOp>::iterator end() const 
-			{
-				return ((std::vector<CigarOp>)*this).end();
-			}
-
-			void push_back(CigarOp& op)
-			{
-				((std::vector<CigarOp>)*this).push_back(op);
-			}
-
-			void clear(){ _data.clear(); }
-		private:
-			const BamAlignment& _parent;
-			std::vector<CigarOp> _data;
-			bool _init;
-		} CigarData;
+		}
 		
 		/* TODO: fix all this dummy strings What is TagData? Not from file? */
 		std::string QueryBases, AlignedBases, Qualities, ErrorString, TagData;
@@ -144,26 +116,26 @@ namespace BamTools {
 		} SupportData;
 		
 
-		BamAlignment() : _bam(NULL),  CigarData(*this),  BlockLength(0), SupportData(*this){}
+		BamAlignment() : _bam(NULL),  BlockLength(0), SupportData(*this){}
 
 		BamAlignment(const std::string& filename, bam1_t* bam, uint32_t size) : 
 			_bam(new _Bam(bam)), 
 			Name(bam_get_qname(bam)),
 			Filename(filename),
-			CigarData(*this),
 			BlockLength(size),
 			SupportData(*this)
 		{
 			setup(bam);
+			InitCigarData();
 		}
 
 		BamAlignment(const BamAlignment& ba) :
 			_bam(ba._bam), 
 			Filename(ba.Filename),
-			CigarData(*this),
 			SupportData(*this)
 		{
 			setup(ba);
+			InitCigarData();
 		}
 
 		const BamAlignment& operator = (const BamAlignment& ba)
@@ -173,6 +145,7 @@ namespace BamTools {
 			Filename = ba.Filename;
 			setup(ba);
 			BlockLength = ba.BlockLength;
+			InitCigarData();
 			return *this;
 		}
 
@@ -183,6 +156,7 @@ namespace BamTools {
 			Name = std::string(bam_get_qname(bam));
 			setup(bam);
 			BlockLength = size;
+			InitCigarData();
 		}
 
 		inline bool GetAlignmentFlag(uint32_t mask) const
