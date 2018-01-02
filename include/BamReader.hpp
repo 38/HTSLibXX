@@ -148,6 +148,37 @@ namespace BamTools {
 				_queue.pop();
 			}
 		}
+
+		int GetReferenceID(const std::string& refname)
+		{
+			if(_hdrs.size() == 0) return -1;
+
+			bam_hdr_t* bh = _hdrs[0].GetHeaderStruct();
+
+			for(int i = 0; i < bh->n_targets; i ++)
+				if(strncmp(refname.c_str(), bh->target_name[i], bh->target_len[i]) && refname.c_str()[bh->target_len[i]] == 0)
+					return i;
+			return -1;
+		}
+
+		void LocateIndexes() 
+		{
+			/* TODO(haohou): Implemnet all the index related functions */
+		}
+
+		bool HasIndexes()
+		{
+			/* TODO(haohou): Implemnet all the index related functions */
+			return false;
+		}
+
+		bool SetRegion(BamRegion& region)
+		{
+			/* TODO(haohou): Implemnet all the index related functions */
+			return false;
+		}
+
+
 	};
 }
 #endif

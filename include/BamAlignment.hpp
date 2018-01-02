@@ -193,6 +193,8 @@ namespace BamTools {
 		FLAG_ACCESSOR(MateReverseStrand, BAM_FMREVERSE);
 		FLAG_ACCESSOR(ProperPair, BAM_FPROPER_PAIR);
 		FLAG_ACCESSOR(Paired, BAM_FPAIRED);
+		FLAG_ACCESSOR(Duplicate, BAM_FDUP);
+		FLAG_ACCESSOR(FailedQC, BAM_FQCFAIL);
 
 		int GetEndPosition(bool usePadded = false, bool closedInterval = false) const
 		{
@@ -223,7 +225,7 @@ namespace BamTools {
 		}
 		
 		template <typename T>
-		bool AddTag(const std::string& tag, const std::string& type, T& data)
+		bool AddTag(const std::string& tag, const std::string& type, T&& data)
 		{
 			_TagGetter<std::string, T> string_getter(*this, data);
 			if(string_getter && "Z" == type)
