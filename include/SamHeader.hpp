@@ -2,7 +2,6 @@
 #define __HTSLIBPP_SAMHEADER_H__
 #include <stdint.h>
 #include <string>
-#include <Property.hpp>
 #include <htslib/sam.h>
 #include <vector>
 #include <string.h>

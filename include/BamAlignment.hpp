@@ -1,7 +1,6 @@
 #ifndef __HTSLIBPP_BAMALIGNEMNT_HPP__
 #define __HTSLIBPP_BAMALIGNEMNT_HPP__
 #include <stdint.h>
-#include <Property.hpp>
 #include <memory>
 #include <cstring>
 namespace BamTools {
@@ -74,17 +73,6 @@ namespace BamTools {
 		{
 			return _bam->bam;
 		}
-
-		PropertyMapping<BamAlignment, int32_t> RefID;
-		PropertyMapping<BamAlignment, int32_t> Position;
-		PropertyMapping<BamAlignment, int32_t> MatePosition;
-		PropertyMapping<BamAlignment, int32_t> MateRefID;
-		PropertyMapping<BamAlignment, int32_t> InsertSize;
-		PropertyMapping<BamAlignment, int32_t> Length; 
-		PropertyMapping<BamAlignment, int16_t> Bin;
-		//PropertyMapping1<BamAlignment, uint8_t, const uint16_t> MapQuality;
-		
-		uint16_t MapQuality;
 		std::string Name;
 		std::string Filename;
 
@@ -110,73 +98,43 @@ namespace BamTools {
 		
 		std::string QueryBases, AlignedBases, Qualities;
 
+#include <BamAlignment.mapping.hpp>
 		
 
 		BamAlignment() : _bam(NULL),  CigarData(*this){}
 
 		BamAlignment(const std::string& filename, bam1_t* bam) : 
 			_bam(new _Bam(bam)), 
-			RefID(_bam->bam->core.tid),
-			Position(_bam->bam->core.pos),
-			MatePosition(_bam->bam->core.mpos),
-			MateRefID(_bam->bam->core.mtid),
-			InsertSize(_bam->bam->core.isize),
-			Length(_bam->bam->core.l_qseq),
-			Bin(_bam->bam->core.bin),
-			//MapQuality(_bam->bam->core.qual),
 			Name(bam_get_qname(bam)),
 			Filename(filename),
 			CigarData(*this)
 		{
-			MapQuality = _bam->bam->core.qual;
+			setup(bam);
 		}
 
 		BamAlignment(const BamAlignment& ba) :
 			_bam(ba._bam), 
-			RefID(_bam->bam->core.tid),
-			Position(_bam->bam->core.pos),
-			MatePosition(_bam->bam->core.mpos),
-			MateRefID(_bam->bam->core.mtid),
-			InsertSize(_bam->bam->core.isize),
-			Length(_bam->bam->core.l_qseq),
-			Bin(_bam->bam->core.bin),
-			MapQuality(_bam->bam->core.qual),
-			Name(ba.Name),
 			Filename(ba.Filename),
 			CigarData(*this)
 		{
-			MapQuality = _bam->bam->core.qual;
+			setup(ba);
 		}
 
 		const BamAlignment& operator = (const BamAlignment& ba)
 		{
 			_bam = ba._bam;
-			RefID(ba.RefID);
-			Position(ba.Position);
-			MateRefID(ba.MateRefID);
-			MatePosition(ba.MatePosition);
-			InsertSize(ba.InsertSize);
-			Length(ba.Length);
-			Bin(ba.Bin);
-			MapQuality = ba.MapQuality;
 			Name = ba.Name;
 			Filename = ba.Filename;
+			setup(ba);
 			return *this;
 		}
 
 		void operator ()(const std::string filename, bam1_t* bam)
 		{
 			_bam = std::shared_ptr<_Bam>(new _Bam(bam));
-			RefID(_bam->bam->core.tid);
-			Position(_bam->bam->core.pos);
-			MatePosition(_bam->bam->core.mpos);
-			MateRefID(_bam->bam->core.mtid);
-			InsertSize(_bam->bam->core.isize);
-			Length(_bam->bam->core.l_qseq);
-			Bin(_bam->bam->core.bin);
-			MapQuality = _bam->bam->core.qual;
 			Filename = filename;
 			Name = std::string(bam_get_qname(bam));
+			setup(bam);
 		}
 
 		inline bool IsMapped() const

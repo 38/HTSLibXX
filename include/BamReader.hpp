@@ -1,7 +1,6 @@
 #ifndef __HTSLIBPP_BAMREADER_HPP__
 #define __HTSLIBPP_BAMREADER_HPP__
 #include <BamAlignment.hpp>
-#include <Property.hpp>
 #include <SamHeader.hpp>
 #include <htslib/sam.h>
 #include <stdint.h>
