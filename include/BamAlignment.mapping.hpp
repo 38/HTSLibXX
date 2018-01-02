@@ -12,6 +12,19 @@ struct _Bin_t {
         bam1_t* _ptr;
 } Bin;
 
+struct _AlignmentFlag_t {
+    _AlignmentFlag_t() : _ptr(NULL) {}
+    void set(bam1_t* ptr) {_ptr = ptr;}
+    void set(const _AlignmentFlag_t& that) {_ptr = that._ptr;}
+    operator int32_t() const {return (int32_t)(_ptr == NULL?0:_ptr->core.flag);}
+    const int32_t& operator=(const int32_t& val) {
+        if(NULL != _ptr) _ptr->core.flag = (int32_t)val;
+        return val;
+    }
+    private:
+        bam1_t* _ptr;
+} AlignmentFlag;
+
 struct _MapQuality_t {
     _MapQuality_t() : _ptr(NULL) {}
     void set(bam1_t* ptr) {_ptr = ptr;}
@@ -105,6 +118,7 @@ struct _RefID_t {
 void setup(bam1_t* bam)
 {
     Bin.set(bam);
+    AlignmentFlag.set(bam);
     MapQuality.set(bam);
     Length.set(bam);
     InsertSize.set(bam);
@@ -116,6 +130,7 @@ void setup(bam1_t* bam)
 void setup(const BamAlignment& bam)
 {
     Bin.set(bam.Bin);
+    AlignmentFlag.set(bam.AlignmentFlag);
     MapQuality.set(bam.MapQuality);
     Length.set(bam.Length);
     InsertSize.set(bam.InsertSize);
