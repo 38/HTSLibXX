@@ -10,18 +10,27 @@
 namespace BamTools {
 	class BamReader {
 		struct _SamFile {
-			_SamFile(samFile* fp, uint32_t _idx) : fp(fp), idx(_idx){}
+			_SamFile(samFile* fp, uint32_t _idx, hts_idx_t* _ip = NULL) : fp(fp), idx(_idx), ip(_ip) {}
 			void destory() 
 			{
+				if(nullptr != ip) hts_idx_destroy(ip);
 				if(nullptr != fp) sam_close(fp);
+			}
+			bool load_index(const char* filename) 
+			{
+				if(ip == NULL && NULL == (ip = sam_index_load(fp, filename)))
+					return false;
+				return true;
 			}
 			samFile* fp;
 			uint32_t idx;
+			hts_idx_t* ip;
 		};
+
 		struct _MetaData {
 			_SamFile file;
 			uint32_t size;
-			_MetaData(_SamFile& _file, uint32_t size) : file(_file.fp, _file.idx)
+			_MetaData(_SamFile _file, uint32_t size) : file(_file.fp, _file.idx, _file.ip)
 			{
 				this->size = size;
 			}
@@ -61,13 +70,14 @@ namespace BamTools {
 			uint32_t i = 0;
 			for(const auto& filename : filenames)
 			{
-				samFile* fp = sam_open(filename.empty() ? "-" : filename.c_str(), "rb");
+				
+				samFile* fp = sam_open(filename.empty() || filename == "stdin" ? "-" : filename.c_str(), "rb");
 				if(nullptr == fp) return false;
 				bam_hdr_t* hdr = sam_hdr_read(fp);
 				if(nullptr == hdr)
 					return false;
 
-				_files.push_back(_SamFile(fp, i ++));
+				_files.push_back(_SamFile(fp, i ++, NULL));
 				_hdrs.push_back(SamHeader(filename, hdr));
 
 				_read_sam_file(_files[_files.size() - 1]);
@@ -163,13 +173,23 @@ namespace BamTools {
 
 		void LocateIndexes() 
 		{
-			/* TODO(haohou): Implemnet all the index related functions */
+			for(auto& sam: _files)
+			{
+				if(!sam.load_index(_hdrs[sam.idx].Filename()))
+				{
+					/* TODO(haohou): Load failure */
+				}
+			}
 		}
 
 		bool HasIndexes()
 		{
-			/* TODO(haohou): Implemnet all the index related functions */
-			return false;
+			for(auto& sam: _files)
+			{
+				if(NULL == sam.ip)
+					return false;
+			}
+			return true;
 		}
 
 		bool SetRegion(BamRegion& region)
