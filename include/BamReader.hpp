@@ -2,12 +2,45 @@
 #define __HTSLIBPP_BAMREADER_HPP__
 #include <BamAlignment.hpp>
 #include <SamHeader.hpp>
-#include <htslib/sam.h>
+#include <sam.h>
+#include <hts.h>
+#include <hfile.h>
 #include <stdint.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <string>
 #include <queue>
 
 namespace BamTools {
+#ifdef WITH_HTS_CB_API
+	struct read_buf_t {
+		int     fd; 
+		char*   ahead_buf;
+		size_t  ahead_buf_size;
+		size_t  pos;
+	};
+	static ssize_t _buf_read(void* data, void* resbuf, size_t sz)
+	{
+		read_buf_t* buf = (read_buf_t*)data;
+		if(buf->pos >= buf->ahead_buf_size)
+			return read(buf->fd, resbuf, sz);
+		if(sz > buf->ahead_buf_size - buf->pos)
+			sz = buf->ahead_buf_size - buf->pos;
+
+		memmove(resbuf, buf->ahead_buf, sz);
+
+		return (ssize_t)sz;
+	}
+
+	static int _buf_close(void* data)
+	{
+		read_buf_t* buf = (read_buf_t*)data;
+		free(buf->ahead_buf);
+		close(buf->fd);
+		free(data);
+		return 0;
+	}
+#endif
 	class BamReader {
 		struct _SamFile {
 			_SamFile(samFile* fp, uint32_t _idx, hts_idx_t* _ip = NULL) : fp(fp), idx(_idx), ip(_ip) {}
@@ -36,6 +69,7 @@ namespace BamTools {
 			}
 		};
 
+
 		struct _Comp {
 			bool operator()(const std::pair<_MetaData, bam1_t*>& left, const std::pair<_MetaData, bam1_t*>& right) 
 			{
@@ -51,6 +85,8 @@ namespace BamTools {
 		std::vector<SamHeader> _hdrs;
 		std::priority_queue<std::pair<_MetaData, bam1_t*>, std::vector<std::pair<_MetaData, bam1_t*> >, _Comp> _queue;
 
+		hFILE_ops _hops;
+
 		bool _read_sam_file(_SamFile file)
 		{
 			bam1_t *rec_ptr = bam_init1();
@@ -64,25 +100,64 @@ namespace BamTools {
 			return false;
 		}
 
+		bool _Open_impl(uint32_t idx, const std::string& filename, const char* unread_buf = NULL, size_t buf_size = 0)
+		{
+			samFile* fp = NULL;
+			if(unread_buf == NULL)
+				fp = sam_open(filename.empty() || filename == "stdin" ? "-" : filename.c_str(), "rb");
+			else
+			{
+#ifdef WITH_HTS_CB_API
+				_hops.read = _buf_read;
+				_hops.write = NULL;
+				_hops.seek = NULL;
+				_hops.flush = NULL;
+				_hops.close = _buf_close;
+				if(NULL == (_hops.cb_data = malloc(sizeof(read_buf_t))))
+					return false;
+				do {
+					read_buf_t* rb = (read_buf_t*)_hops.cb_data;
+					if(filename == "stdin" || filename.empty())
+						rb->fd = 0;
+					else if((rb->fd = open(filename.c_str(), O_RDONLY)) > 0)
+					{
+						if(NULL != (rb->ahead_buf = (char*)malloc(buf_size)))
+						{
+							rb->ahead_buf_size = buf_size;
+							rb->pos = 0;
+							continue;
+						}
+					}
+					close(rb->fd);
+					free(_hops.cb_data);
+					return false;
+				} while(0);
+				fp = hts_open_cb(&_hops, "rb");
+#else
+				fp = NULL;
+#endif
+			}
+			if(nullptr == fp) return false;
+			bam_hdr_t* hdr = sam_hdr_read(fp);
+			if(nullptr == hdr)
+				return false;
+
+			_files.push_back(_SamFile(fp, idx, NULL));
+			_hdrs.push_back(SamHeader(filename, hdr));
+
+			_read_sam_file(_files[_files.size() - 1]);
+			return true;
+		}
+
 	public:
 		bool Open(const std::vector<std::string>& filenames) 
 		{
 			uint32_t i = 0;
 			for(const auto& filename : filenames)
-			{
-				
-				samFile* fp = sam_open(filename.empty() || filename == "stdin" ? "-" : filename.c_str(), "rb");
-				if(nullptr == fp) return false;
-				bam_hdr_t* hdr = sam_hdr_read(fp);
-				if(nullptr == hdr)
+				if(_Open_impl(i, filename))
+					i ++;
+				else
 					return false;
-
-				_files.push_back(_SamFile(fp, i ++, NULL));
-				_hdrs.push_back(SamHeader(filename, hdr));
-
-				_read_sam_file(_files[_files.size() - 1]);
-			}
-
 			return true;
 		}
 
@@ -92,6 +167,12 @@ namespace BamTools {
 			vec.push_back(filename);
 			return Open(vec);
 		}
+#ifdef WITH_HTS_CB_API
+		bool Open(const std::string& filename, const char* unread_buf)
+		{
+			return _Open_impl(0, filename, unread_buf);
+		}
+#endif
 
 		bool IsOpen() const 
 		{
