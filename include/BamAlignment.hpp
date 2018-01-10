@@ -254,7 +254,7 @@ namespace BamTools {
 		}
 		
 		template <typename T>
-		bool AddTag(const std::string& tag, const std::string& type, T& data)
+		bool AddTag(const std::string& tag, const std::string& type, T data)
 		{
 			_TagGetter<std::string, T> string_getter(*this, data);
 			if(string_getter && "Z" == type)
