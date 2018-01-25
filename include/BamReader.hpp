@@ -27,7 +27,7 @@ namespace BamTools {
 		
 		static int close(void* data)
 		{
-			free(data);
+			delete static_cast<stream_data_t*>(data);
 			return 0;
 		}
 	};
@@ -92,6 +92,7 @@ namespace BamTools {
 
 			BamReader* reader;
 			bool has_range;
+			bam1_t buffer;
 		};
 
 		struct _MetaData {
@@ -125,7 +126,9 @@ namespace BamTools {
 
 		bool _read_sam_file(_SamFile* file)
 		{
-			bam1_t *rec_ptr = bam_init1();
+			memset(&file->buffer, 0, sizeof(file->buffer));
+			bam1_t* rec_ptr = &file->buffer;
+
 			int read_rc;
 			if(file->has_range)
 			{
@@ -151,7 +154,6 @@ namespace BamTools {
 				_error_str = "Htslib error"; 
 			}
 
-			bam_destroy1(rec_ptr);
 			return false;
 		}
 
@@ -169,6 +171,8 @@ namespace BamTools {
 
 			if(_read_sam_file(_files[_files.size() - 1]) || GetErrorString() == "")
 				return true;
+
+			Close();
 
 			return false;
 		}
@@ -238,24 +242,29 @@ namespace BamTools {
 
 		bool GetNextAlignment(BamAlignment& alignment)
 		{
+			if(GetNextAlignmentCore(alignment))
+			{
+				alignment.InitAdditionalData();
+				return true;
+			}
+			return false;
+		}
+
+		bool GetNextAlignmentCore(BamAlignment& alignment)
+		{
 			if(_queue.empty()) return false;
 
 			auto& top = _queue.top();
 
 			_SamFile* fp = top.first.file;
 			
-			alignment(_hdrs[fp->idx].Filename(), top.second, top.first.size);
+			alignment(_hdrs[fp->idx].Filename(), top.second, top.first.size, false);
 
 			_queue.pop();
 
 			_read_sam_file(fp);
 
 			return true;
-		}
-
-		bool GetNextAlignmentCore(BamAlignment& alignment)
-		{
-			return GetNextAlignment(alignment);
 		}
 
 		void Close(void)
@@ -273,7 +282,7 @@ namespace BamTools {
 			while(!_queue.empty())
 			{
 				auto& item = _queue.top();
-				bam_destroy1(item.second);
+				free(item.second->data);
 				_queue.pop();
 			}
 		}

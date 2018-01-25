@@ -102,7 +102,6 @@ namespace BamTools {
 		void InitAdditionalData()
 		{
 			QueryBases = "";
-			Qualities = "";
 			static const char* base2char = "=ACMGRSVTWYHKDBN";
 			const uint8_t* seq = bam_get_seq(&_bam);
 			
@@ -112,13 +111,14 @@ namespace BamTools {
 				QueryBases.push_back(cur_base);
 			}
 
+			Qualities = "";
+			
 			const uint8_t* qual = bam_get_qual(&_bam);
 
-			if(qual[0] == 0xffu)
+			if(_bam.core.l_qseq == 0 || qual[0] == 0xffu)
 				Qualities.resize(QuerySequenceLength, -1);
 			else for(unsigned i = 0; i < QuerySequenceLength; i ++)
 				Qualities.push_back((char)(33 + qual[i]));
-			SupportData.AllCharData = std::string((const char*)_bam.data, _bam.l_data);
 		}
 
 #include <BamAlignment.mapping.hpp>
@@ -128,7 +128,13 @@ namespace BamTools {
 			_QuerySequenceLength_t& QuerySequenceLength;
 			_NumCigarOperations_t& NumCigarOperations;
 			uint32_t& BlockLength;
-			std::string AllCharData;
+			struct {
+				const char* begin;
+				size_t      size;
+				const char* c_str() const { return begin; }
+				size_t      length() const { return size; }
+				void clear() { begin = NULL; size = 0; }
+			} AllCharData;
 			bool HasCoreOnly;  /* TODO(haohou): populate the string data */
 			/* TODO(haohou): Tag2Cigar?  Real Cigar ? */
 			_SupportData(BamAlignment& parent): 
@@ -168,8 +174,10 @@ namespace BamTools {
 			SupportData(*this)
 		{
 			bam_copy1(&_bam, ba.HtsObj());
-			InitCigarData();
-			InitAdditionalData();
+			CigarData = ba.CigarData;
+			QueryBases = ba.QueryBases;
+			Qualities = ba.Qualities;
+			SupportData.AllCharData = ba.SupportData.AllCharData;
 		}
 
 		const BamAlignment& operator = (const BamAlignment& ba)
@@ -178,19 +186,30 @@ namespace BamTools {
 			Filename = ba.Filename;
 			bam_copy1(&_bam, ba.HtsObj());
 			BlockLength = ba.BlockLength;
-			InitCigarData();
-			InitAdditionalData();
+			CigarData = ba.CigarData;
+			QueryBases = ba.QueryBases;
+			Qualities = ba.Qualities;
+			SupportData.AllCharData = ba.SupportData.AllCharData;
 			return *this;
 		}
 
-		void operator ()(const std::string filename, const bam1_t* bam, uint32_t size = 0)
+		void operator ()(const std::string filename, const bam1_t* bam, uint32_t size = 0, bool copy = true)
 		{
 			Filename = filename;
 			Name = std::string(bam_get_qname(bam));
 			BlockLength = size;
-			bam_copy1(&_bam, bam);
+			if(copy)
+				bam_copy1(&_bam, bam);
+			else
+			{
+				free(_bam.data);
+				_bam = *bam;
+			}
+
+			SupportData.AllCharData.begin = (const char*)_bam.data;
+			SupportData.AllCharData.size = _bam.l_data;
+
 			InitCigarData();
-			InitAdditionalData();
 		}
 
 		inline bool GetAlignmentFlag(uint32_t mask) const
