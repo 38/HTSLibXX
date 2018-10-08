@@ -172,6 +172,8 @@ namespace BamTools {
 			if(nullptr == hdr)
 				return false;
 
+			hts_set_fai_filename(fp, ref_file);
+
 			_files.push_back(new _SamFile(fp, idx, this));
 			_hdrs.push_back(SamHeader(filename, hdr));
 
