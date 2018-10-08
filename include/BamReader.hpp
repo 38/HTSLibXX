@@ -82,6 +82,11 @@ namespace BamTools {
 				return refresh_idx();
 			}
 
+			refs_t* get_reference()
+			{
+				return hts_get_refs(fp);
+			}
+
 			samFile* fp;
 			uint32_t idx;
 			hts_idx_t* ip;
@@ -337,6 +342,11 @@ namespace BamTools {
 			}
 
 			return true;
+		}
+
+		refs_t* GetReference(int idx = 0)
+		{
+			return _files.at(idx).get_reference();
 		}
 
 	};
